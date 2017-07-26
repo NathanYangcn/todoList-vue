@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>todoList</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/antiscroll.css">
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+    <div id="app">
+        <section id="sign" v-if="!currentUser">
+            <div class="sign-logo">TodoList</div>
+
+            <div class="sign-up" v-if="signType === 'signUp'">
+                <div class="sign-container">
+                    <form class="sign-form" @submit.prevent="signUp">
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="账号" v-model="signUpData.username">
+                        </div>
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="密码" v-model="signUpData.password">
+                        </div>
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="确认密码" v-model="signUpData.passwordConfirm">
+                        </div>
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="邮箱" v-model="signUpData.email">
+                        </div>
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="手机号码" v-model="signUpData.phoneNum">
+                        </div>
+                        <div class="sign-form-submit">
+                            <input type="submit" value="注册">
+                        </div>
+                    </form>
+                    <div class="sign-tab">
+                        <span>已有账户？</span>
+                        <label><input type="radio" name="sign-tab" v-model="signType" value="signIn">登录</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sign-in" v-if="signType === 'signIn'">
+                <div class="sign-container">
+                    <form class="sign-form" @submit.prevent="signIn">
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="账号" v-model="signInData.username">
+                        </div>
+                        <div class="sign-form-row">
+                            <input type="text" placeholder="密码" v-model="signInData.password">
+                        </div>
+                        <div class="sign-form-submit">
+                            <input type="submit" value="登录">
+                        </div>
+                    </form>
+                    <div class="sign-tab">
+                        <label><input type="radio" name="sign-tab" v-model="signType" value="signUp">创建免费账户</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="views" v-if="currentUser">
+            <div class="views-project">
+                <div class="project-tool clearfix">
+                    <span class="tool-username">{{ currentUser.username }}</span>
+                    <span class="tool-line-b"> | </span>
+                    <span class="tool-signout" @click="signOut">登出</span>
+                </div>
+
+                <div class="project-list">
+                    <div class="project-list-inner antiscroll-wrap">
+                        <div class="antiscroll-inner">
+                            <ul class="project-list-default">
+                                <li class="font-in-line active" @click="filterUnfinish">所有</li>
+                                <li class="font-in-line" @click="filterToday">今日</li>
+                                <li class="font-in-line" @click="filterOverTime">过期</li>
+                                <li class="font-in-line" @click="ftlterFinished">完成</li>
+                                <li class="font-in-line" @click="filterAll">任务轨迹</li>
+                            </ul>
+                            <div class="project-list-created">
+                                <div class="add-new-project">
+                                    <input class="font-in-line" type="text" placeholder="+ 新建清单" class="new-pro-name" v-model.trim="newProjectName" @keypress.enter="addProject">
+                                </div>
+                                <ul>
+                                    <li class="font-in-line" v-for="(item, index) in projects" @click="filterProjectList(item, index)">{{item.name}}</li><!--@click="recordProject(item)"-->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="views-task">
+                <div class="task-add">
+                    <div class="add-to-project">所有</div>
+                    <div class="add-new">
+                        <input class="add-new-title" type="text" v-model.trim="newTaskTitle" @keypress.enter="addTask" placeholder="+ 新建任务...">
+                        <span class="add-new-btn btn" @click="addTask">添加</span>
+                    </div>
+                </div>
+
+                <div class="task-list">
+                    <div class="task-list-inner antiscroll-wrap">
+                        <ul class="antiscroll-inner">
+                            <li class="clearfix" v-for="(item, index) in tasks"
+                                @click="checkoutTask(item, index)"
+                                :class="{active: index===(taskIndex||0)}"
+                            >
+                                <div  class="task-checkbox">
+                                    <input type="checkbox" @click="finishTask" v-model="item.completed">
+                                </div>
+                                <div class="task-createdAt completed">
+                                    <!--v-bind:class="{overtime: }"-->
+                                    {{ item.createdAt }}
+                                </div>
+                                <div class="task-title">
+                                    <label>
+                                        <input type="text" class="font-in-line" v-model.trim="item.title" v-bind:class="{completed: item.completed}"
+                                               @focus="editing(item)"
+                                               @keypress.enter="changeTitleC(item)"
+                                               @keyup.esc="cancleEdit(item)"
+                                               @blur="changeTitleC(item)"
+                                        >
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="views-detial">
+                <div v-if="isCheckout" class="detial-empty">点击任务标题查看详情</div>
+                <div v-else class="detial-checkout">
+                    <div class="checkout-progress">
+                        <input type="checkbox" v-model="taskItem.completed" @click="changeCompleted">
+                        <span class="checkout-progress-createdAt"> {{ taskItem.createdAt }} </span>
+                    </div>
+
+                    <div class="checkout-content">
+                        <input v-model.trim="taskItem.title" class="checkout-content-head font-in-line throw-input-deft"
+                               @change="changeTitleR"
+                               @keypress.esc="cancleEditTR"
+                        >
+                        <textarea v-model.trim="taskItem.content" placeholder="任务描述..." class="checkout-content-body throw-input-deft"
+                               @change="changeDetial"
+                               @keypress.esc="cancleEditCR"
+                        ></textarea>
+                    </div>
+
+                    <div class="checkout-tool">
+                        <span @click="removeTaskNew" class="checkout-tool-delete btn">删除</span>
+                        <span @click="changeSave" class="checkout-tool-save btn">保存</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+
+    <script src="js/lib/jquery.js"></script>
+    <script src="js/lib/jquery-mousewheel.js"></script>
+    <script src="js/lib/antiscroll.js"></script>
+    <script src="bundle.js"></script>
+    <script>
+        $(function () {
+            $('.antiscroll-wrap').antiscroll();
+        });
+    </script>
+</body>
+</html>
