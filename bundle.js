@@ -277,22 +277,6 @@ _leancloudStorage2.default.init({
     appKey: APP_KEY
 });
 
-var filters = {
-    all: function all(tasks) {
-        return tasks;
-    },
-    finished: function finished(tasks) {
-        return tasks.filter(function (task) {
-            return task.completed;
-        });
-    },
-    unfinished: function unfinished(tasks) {
-        return tasks.filter(function (task) {
-            return !task.completed;
-        });
-    }
-};
-
 var app = new _vue2.default({
     el: '#app',
     data: {
@@ -311,19 +295,16 @@ var app = new _vue2.default({
         currentUser: null,
         newTaskTitle: '',
         newTaskDetail: '',
-        tasks: [],
-        tasksData: [],
+        tasks: [], // 过滤数据
+        tasksData: [], // 源数据
         isCheckout: true,
-        // checkoutTitle: '',
-        // checkoutDetail: '',
-        // checkoutDone: false,
-        // checkoutCreatedAt: '',
         taskItem: '',
         taskIndex: null,
         editDataCache: null,
         projects: [], // 清单列表
         newProjectName: '',
-        curProject: null // 当前清单
+        curProject: null, // 当前清单
+        projectType: 'default' // 当前的过滤器
     },
     created: function created() {
         this.currentUser = this.getCurrentUser();
@@ -331,7 +312,6 @@ var app = new _vue2.default({
             this.fetchTasks();
         }
     },
-    computed: {},
     methods: {
         tasksSaveOrUpdate: function tasksSaveOrUpdate() {
             if (this.tasksData.id || this.projects.id) {
@@ -351,12 +331,9 @@ var app = new _vue2.default({
         saveTasks: function saveTasks() {
             var self = this;
             var tasksDataStr = JSON.stringify(this.tasksData);
-            // var projectsDataStr = JSON.stringify(this.projects);
             var AVTasks = _leancloudStorage2.default.Object.extend('AllTasks'); // 新建一个 Task
             var avTasks = new AVTasks();
             avTasks.set('tasksList', tasksDataStr);
-            // avTasks.set('content', dataStr);
-            // avTasks.set('projectsList', projectsDataStr);
 
             var acl = new _leancloudStorage2.default.ACL(); // 新建一个 ACL 实例
             acl.setReadAccess(_leancloudStorage2.default.User.current(), true);
@@ -364,10 +341,10 @@ var app = new _vue2.default({
 
             avTasks.setACL(acl); // 将 ACL 实例赋予 Post 对象
             avTasks.save().then(function (task) {
-                console.log('0000000000000000000');
-                console.log(task);
+                // console.log('0000000000000000000')
+                // console.log(task)
                 self.tasksData.id = task.id;
-                alert('success'); // 保存成功
+                // alert('success'); // 保存成功
             }).catch(function (error) {
                 console.log(error);
             });
@@ -386,21 +363,17 @@ var app = new _vue2.default({
             avTasks.setACL(acl); // 将 ACL 实例赋予 Post 对象
             avTasks.save().then(function (project) {
                 self.projects.id = project.id;
-                alert('success'); // 保存成功
+                // alert('success'); // 保存成功
             }).catch(function (error) {
                 console.log(error);
             });
         },
         updateTasks: function updateTasks() {
-            // var dataStr = JSON.stringify(this.tasksData);
+            var self = this;
             var tasksDataStr = JSON.stringify(this.tasksData);
-            // var projectsDataStr = JSON.stringify(this.projects);
             var avTasks = _leancloudStorage2.default.Object.createWithoutData('AllTasks', this.tasksData.id || this.projects.id); // 第一个参数是 className，第二个参数是 objectId
             avTasks.set('tasksList', tasksDataStr); // 修改属性
-            // avTasks.set('content', dataStr);  // 修改属性
-            // avTasks.set('projectsList', projectsDataStr);  // 修改属性
             avTasks.save().then(function () {
-                // alert('更新成功')
                 console.log('ok!');
             }); // 保存到云端
         },
@@ -409,7 +382,6 @@ var app = new _vue2.default({
             var avTasks = _leancloudStorage2.default.Object.createWithoutData('AllTasks', this.projects.id || this.tasksData.id); // 第一个参数是 className，第二个参数是 objectId
             avTasks.set('projectsList', projectsDataStr); // 修改属性
             avTasks.save().then(function () {
-                // alert('更新成功')
                 console.log('ok!');
             }); // 保存到云端
         },
@@ -418,23 +390,24 @@ var app = new _vue2.default({
             var query = new _leancloudStorage2.default.Query('AllTasks');
             query.find().then(function (tasks) {
                 var avAllTasks = tasks[0];
-                console.log('---------');
-                console.log(tasks[0]);
+                // console.log('---------')
+                // console.log(tasks[0]);
                 var id = avAllTasks.id;
-                console.log(avAllTasks.id);
+                // console.log(avAllTasks.id);
                 self.tasksData = JSON.parse(avAllTasks.attributes.tasksList);
                 self.projects = JSON.parse(avAllTasks.attributes.projectsList);
                 self.tasksData.id = id;
                 self.projects.id = id;
-                console.log(self.tasksData);
+                // console.log(self.tasksData)
             }).then(function (tasks) {
-                console.log(self.tasks);
-                console.log(self.tasksData);
-                self.tasks = self.tasksData;
-                alert('获取成功');
+                // console.log(self.tasks);
+                // console.log(self.tasksData);
+                // self.tasks = self.tasksData;
+                self.filterUnfinish(); // 函数中没有return，那么无法打印函数值
+                // alert('获取成功');
             }, function (error) {
                 console.log(error);
-                alert('获取失败');
+                // alert('获取失败');
             });
         },
         // 注册账号
@@ -445,7 +418,7 @@ var app = new _vue2.default({
             user.setPassword(this.signUpData.password); // 设置密码
             user.setEmail(this.signUpData.email); // 设置邮箱
             user.signUp().then(function (loginedUser) {
-                console.log(loginedUser);
+                // console.log(loginedUser);
                 self.currentUser = self.getCurrentUser();
                 this.fetchTasks();
             }, function (error) {
@@ -492,18 +465,36 @@ var app = new _vue2.default({
                 completed: false,
                 belongTo: this.curProject // 设立清单归属
             });
+            this.tasks.push({
+                title: this.newTaskTitle,
+                content: this.newTaskDetail,
+                createdAt: this.formatTime(new Date()),
+                completed: false,
+                belongTo: this.curProject // 设立清单归属
+            });
             this.newTaskTitle = '';
-            console.log(this.tasks);
-            // console.log(this.tasks[0].createdAt);
+            // console.log(this.tasks);
             this.tasksSaveOrUpdate();
         },
         removeTaskNew: function removeTaskNew() {
-            // let indexItem = this.tasksData.indexOf(this.taskItem);
-            var index = this.taskIndex;
+            var index = this.tasksData.indexOf(this.taskItem);
             this.tasksData.splice(index, 1);
+            this.tasks.splice(this.taskIndex, 1);
             this.isCheckout = true;
             this.tasksSaveOrUpdate();
-            console.log('detele');
+            console.log('detele', index, this.taskIndex, this.taskItem);
+        },
+        removeProject: function removeProject(item, index) {
+            // for (let i = 0; i < this.tasks.length; i++) { // 修改任务归属
+            //     if (this.projectType === 'created' && this.tasks[i].belongTo === this.curProject) {
+            //         this.tasks[i][belongTo] = 'all'
+            //         console.log('true')
+            //     }
+            // }
+            this.projects.splice(index, 1);
+            this.tasksSaveOrUpdate();
+            this.projectsSaveOrUpdate();
+            console.log('deteleProject');
         },
         finishTask: function finishTask(item) {
             this.tasksSaveOrUpdate();
@@ -512,19 +503,12 @@ var app = new _vue2.default({
             this.isCheckout = false;
             this.taskItem = item;
             this.taskIndex = index;
-            // this.checkoutTitle = item.title;
-            // this.checkoutDetail = item.content;
-            // this.checkoutDone = item.done;
-            // this.checkoutCreatedAt = item.createdAt;
         },
         editing: function editing(item) {
             this.editDataCache = item.title;
         },
         changeTitleC: function changeTitleC(item) {
-            // let indexItem = this.tasksData.indexOf(this.taskItem);
             var index = this.taskIndex;
-            // this.tasksData[index].title = this.checkoutTitle;
-            // this.tasksData[index].title = this.taskItem.title;
             this.tasksData[index].title = item.title;
             if (this.editDataCache === item.title) {
                 return;
@@ -537,25 +521,17 @@ var app = new _vue2.default({
             item.title = this.editDataCache;
         },
         changeTitleR: function changeTitleR() {
-            // let indexItem = this.tasksData.indexOf(this.taskItem);
             var index = this.taskIndex;
-            // this.tasksData[index].title = this.checkoutTitle;
             this.tasksData[index].title = this.taskItem.title;
-            // this.tasksSaveOrUpdate();
             console.log('changeTile');
         },
         changeDetial: function changeDetial() {
-            // let indexItem = this.tasksData.indexOf(this.taskItem);
             var index = this.taskIndex;
-            // this.tasksData[index].content = this.checkoutDetail;
             this.tasksData[index].content = this.taskItem.content;
-            // this.saveOrUpdate();
             console.log('changeDetial');
         },
         changeCompleted: function changeCompleted() {
-            // let indexItem = this.tasksData.indexOf(this.taskItem);
             var index = this.taskIndex;
-            // this.tasksData[index].done = this.checkoutDone;
             this.tasksData[index].completed = this.taskItem.completed;
             console.log('changeCompleted');
             this.tasksSaveOrUpdate();
@@ -578,13 +554,14 @@ var app = new _vue2.default({
                     dtArray[i] = '0' + dtArray[i];
                 }
             }
-            // var tpl = dtArray[0] +'年'+ dtArray[1] +'月'+ dtArray[2] +'日 '+ dtArray[3] +':'+ dtArray[4];
             var tpl = dtArray[0] + '年' + dtArray[1] + '月' + dtArray[2] + '日 ';
             return tpl;
         },
-        // 任务分类显示
+        // 任务分类显示-任务过滤器
         filterAll: function filterAll() {
             this.tasks = this.tasksData;
+            this.projectType = 'default';
+            this.curProject = 'all';
         },
         ftlterFinished: function ftlterFinished() {
             var finished = [];
@@ -595,6 +572,8 @@ var app = new _vue2.default({
                 }
             }
             this.tasks = finished;
+            this.projectType = 'default';
+            this.curProject = 'finished';
         },
         filterUnfinish: function filterUnfinish() {
             var unfinish = [];
@@ -605,6 +584,8 @@ var app = new _vue2.default({
                 }
             }
             this.tasks = unfinish;
+            this.projectType = 'default';
+            this.curProject = 'unfinish';
         },
         filterToday: function filterToday() {
             var todayArr = [];
@@ -616,6 +597,8 @@ var app = new _vue2.default({
                 }
             }
             this.tasks = todayArr;
+            this.projectType = 'default';
+            this.curProject = 'today';
         },
         filterOverTime: function filterOverTime() {
             var overTime = [];
@@ -624,17 +607,15 @@ var app = new _vue2.default({
             for (var i = 0; i < this.tasksData.length; i++) {
                 if (overTimeDate > this.filterFormatTime(this.tasksData[i].createdAt) && !this.tasksData[i].completed) {
                     overTime.push(this.tasksData[i]);
-                    // console.log(overTime);
-                    // console.log(this.filterFormatTime(this.tasksData[i].createdAt));
                     console.log('overtime');
                 }
             }
             this.tasks = overTime;
-            // console.log(overTime);
+            this.projectType = 'default';
+            this.curProject = 'overtime';
         },
         filterFormatTime: function filterFormatTime(timeStr) {
             var result = timeStr.replace(/\D/g, '-');
-            // console.log(result.slice(0,-2));
             return Date.parse(result.slice(0, -2));
         },
         addProject: function addProject() {
@@ -648,11 +629,6 @@ var app = new _vue2.default({
             console.log(this.projects);
             this.projectsSaveOrUpdate();
         },
-        // recordProject: function (item) {
-        //     this.curProject = item.name;
-        //     console.log('-------------');
-        //     console.log(this.curProject);
-        // },
         filterProjectList: function filterProjectList(item, index) {
             this.curProject = item.name;
 
@@ -664,9 +640,27 @@ var app = new _vue2.default({
                 }
             }
             this.tasks = proTask;
+            this.projectType = 'created';
         }
     }
 });
+
+// 过滤任务修改格式
+// var filters = {
+//     all: function (tasks) {
+//         return tasks;
+//     },
+//     finished: function (tasks) {
+//         return tasks.filter(function (task) {
+//             return task.completed;
+//         })
+//     },
+//     unfinished: function (tasks) {
+//         return tasks.filter(function (task) {
+//             return !task.completed;
+//         })
+//     }
+// };
 
 /***/ }),
 /* 2 */

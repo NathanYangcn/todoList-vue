@@ -153,8 +153,13 @@
     line-height: 35px;
     outline: none;
 }
+
 #views > .views-project .project-list-inner .project-list-created input::-webkit-input-placeholder {
     color: #fff;
+}
+
+#views > .views-project .project-list-inner .project-list-created small {
+    float: right;
 }
 
     /*中视图*/

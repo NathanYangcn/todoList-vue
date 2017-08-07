@@ -8,22 +8,6 @@ AV.init({
     appKey: APP_KEY
 });
 
-var filters = {
-    all: function (tasks) {
-        return tasks;
-    },
-    finished: function (tasks) {
-        return tasks.filter(function (task) {
-            return task.completed;
-        })
-    },
-    unfinished: function (tasks) {
-        return tasks.filter(function (task) {
-            return !task.completed;
-        })
-    }
-};
-
 var app = new Vue({
     el: '#app',
     data: {
@@ -42,15 +26,16 @@ var app = new Vue({
         currentUser: null,
         newTaskTitle: '',
         newTaskDetail: '',
-        tasks: [],
-        tasksData: [],
+        tasks: [], // 过滤数据
+        tasksData: [], // 源数据
         isCheckout: true,
         taskItem: '',
         taskIndex: null,
         editDataCache: null,
         projects: [],   // 清单列表
         newProjectName: '',
-        curProject: null  // 当前清单
+        curProject: null,  // 当前清单
+        projectType: 'default' // 当前的过滤器
     },
     created: function () {
         this.currentUser = this.getCurrentUser();
@@ -87,10 +72,10 @@ var app = new Vue({
 
             avTasks.setACL(acl); // 将 ACL 实例赋予 Post 对象
             avTasks.save().then(function(task) {
-                console.log('0000000000000000000')
-                console.log(task)
+                // console.log('0000000000000000000')
+                // console.log(task)
                 self.tasksData.id = task.id;
-                alert('success'); // 保存成功
+                // alert('success'); // 保存成功
             }).catch(function(error) {
                 console.log(error);
             });
@@ -109,12 +94,13 @@ var app = new Vue({
             avTasks.setACL(acl); // 将 ACL 实例赋予 Post 对象
             avTasks.save().then(function(project) {
                 self.projects.id = project.id;
-                alert('success'); // 保存成功
+                // alert('success'); // 保存成功
             }).catch(function(error) {
                 console.log(error);
             });
         },
         updateTasks: function () {
+            var self = this;
             var tasksDataStr = JSON.stringify(this.tasksData);
             var avTasks = AV.Object.createWithoutData('AllTasks', (this.tasksData.id || this.projects.id));  // 第一个参数是 className，第二个参数是 objectId
             avTasks.set('tasksList', tasksDataStr);  // 修改属性
@@ -136,24 +122,25 @@ var app = new Vue({
             query.find()
                 .then(function (tasks) {
                     let avAllTasks = tasks[0];
-                    console.log('---------')
-                    console.log(tasks[0]);
+                    // console.log('---------')
+                    // console.log(tasks[0]);
                     let id = avAllTasks.id;
-                    console.log(avAllTasks.id);
+                    // console.log(avAllTasks.id);
                     self.tasksData = JSON.parse(avAllTasks.attributes.tasksList);
                     self.projects = JSON.parse(avAllTasks.attributes.projectsList);
                     self.tasksData.id = id;
                     self.projects.id = id;
-                    console.log(self.tasksData)
+                    // console.log(self.tasksData)
                 })
                 .then(function(tasks) {
-                    console.log(self.tasks);
-                    console.log(self.tasksData);
-                    self.tasks = self.tasksData;
-                    alert('获取成功');
+                    // console.log(self.tasks);
+                    // console.log(self.tasksData);
+                    // self.tasks = self.tasksData;
+                    self.filterUnfinish(); // 函数中没有return，那么无法打印函数值
+                    // alert('获取成功');
                 }, function (error) {
                     console.log(error);
-                    alert('获取失败');
+                    // alert('获取失败');
                 });
         },
         // 注册账号
@@ -164,7 +151,7 @@ var app = new Vue({
             user.setPassword(this.signUpData.password); // 设置密码
             user.setEmail(this.signUpData.email); // 设置邮箱
             user.signUp().then(function (loginedUser) {
-                console.log(loginedUser);
+                // console.log(loginedUser);
                 self.currentUser = self.getCurrentUser();
                 this.fetchTasks();
             }, function (error) {
@@ -208,16 +195,36 @@ var app = new Vue({
                 completed: false,
                 belongTo: this.curProject   // 设立清单归属
             });
+            this.tasks.push({
+                title: this.newTaskTitle,
+                content: this.newTaskDetail,
+                createdAt: ( this.formatTime( new Date() ) ),
+                completed: false,
+                belongTo: this.curProject   // 设立清单归属
+            });
             this.newTaskTitle = '';
-            console.log(this.tasks);
+            // console.log(this.tasks);
             this.tasksSaveOrUpdate();
         },
         removeTaskNew: function () {
-            let index = this.taskIndex;
+            let index = this.tasksData.indexOf(this.taskItem);
             this.tasksData.splice(index, 1);
+            this.tasks.splice(this.taskIndex, 1);
             this.isCheckout = true;
             this.tasksSaveOrUpdate();
-            console.log('detele');
+            console.log('detele', index, this.taskIndex, this.taskItem);
+        },
+        removeProject: function (item, index) {
+            // for (let i = 0; i < this.tasks.length; i++) { // 修改任务归属
+            //     if (this.projectType === 'created' && this.tasks[i].belongTo === this.curProject) {
+            //         this.tasks[i][belongTo] = 'all'
+            //         console.log('true')
+            //     }
+            // }
+            this.projects.splice(index, 1);
+            this.tasksSaveOrUpdate();
+            this.projectsSaveOrUpdate();
+            console.log('deteleProject');
         },
         finishTask: function (item) {
             this.tasksSaveOrUpdate();
@@ -283,6 +290,8 @@ var app = new Vue({
         // 任务分类显示-任务过滤器
         filterAll: function () {
             this.tasks = this.tasksData;
+            this.projectType = 'default'
+            this.curProject = 'all'
         },
         ftlterFinished: function () {
             var finished = [];
@@ -293,6 +302,8 @@ var app = new Vue({
                 }
             }
             this.tasks = finished;
+            this.projectType = 'default'
+            this.curProject = 'finished'
         },
         filterUnfinish: function () {
             var unfinish = [];
@@ -303,6 +314,8 @@ var app = new Vue({
                 }
             }
             this.tasks = unfinish;
+            this.projectType = 'default'
+             this.curProject = 'unfinish'
         },
         filterToday: function () {
             var todayArr = [];
@@ -314,6 +327,8 @@ var app = new Vue({
                 }
             }
             this.tasks = todayArr;
+            this.projectType = 'default'
+             this.curProject = 'today'
         },
         filterOverTime: function () {
             var overTime = [];
@@ -326,6 +341,8 @@ var app = new Vue({
                 }
             }
             this.tasks = overTime;
+            this.projectType = 'default'
+            this.curProject = 'overtime'
         },
         filterFormatTime: function (timeStr) {
             let result = timeStr.replace(/\D/g, '-');
@@ -353,6 +370,24 @@ var app = new Vue({
                 }
             }
             this.tasks = proTask;
+            this.projectType = 'created'
         }
     }
 });
+
+// 过滤任务修改格式
+// var filters = {
+//     all: function (tasks) {
+//         return tasks;
+//     },
+//     finished: function (tasks) {
+//         return tasks.filter(function (task) {
+//             return task.completed;
+//         })
+//     },
+//     unfinished: function (tasks) {
+//         return tasks.filter(function (task) {
+//             return !task.completed;
+//         })
+//     }
+// };

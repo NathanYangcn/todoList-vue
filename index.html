@@ -73,18 +73,34 @@
                     <div class="project-list-inner antiscroll-wrap">
                         <div class="antiscroll-inner">
                             <ul class="project-list-default">
-                                <li class="font-in-line active" @click="filterUnfinish">所有</li>
-                                <li class="font-in-line" @click="filterToday">今日</li>
-                                <li class="font-in-line" @click="filterOverTime">过期</li>
-                                <li class="font-in-line" @click="ftlterFinished">完成</li>
-                                <li class="font-in-line" @click="filterAll">任务轨迹</li>
+                                <li class="font-in-line " @click="filterUnfinish"
+                                    :class="{active: projectType==='default' && curProject==='unfinish'}"
+                                >待办</li>
+                                <li class="font-in-line" @click="filterToday"
+                                    :class="{active: projectType==='default' && curProject==='today'}"
+                                >今日</li>
+                                <li class="font-in-line" @click="filterOverTime"
+                                    :class="{active: projectType==='default' && curProject==='overtime'}"
+                                >过期</li>
+                                <li class="font-in-line" @click="ftlterFinished"
+                                    :class="{active: projectType==='default' && curProject==='finished'}"
+                                >完成</li>
+                                <li class="font-in-line" @click="filterAll"
+                                    :class="{active: projectType==='default' && curProject==='all'}"
+                                >任务轨迹</li>
                             </ul>
                             <div class="project-list-created">
                                 <div class="add-new-project">
                                     <input class="font-in-line" type="text" placeholder="+ 新建清单" class="new-pro-name" v-model.trim="newProjectName" @keypress.enter="addProject">
                                 </div>
                                 <ul>
-                                    <li class="font-in-line" v-for="(item, index) in projects" @click="filterProjectList(item, index)">{{item.name}}</li><!--@click="recordProject(item)"-->
+                                    <li class="font-in-line clearfix" v-for="(item, index) in projects" @click="filterProjectList(item, index)"
+                                        :class="{active: projectType==='created' && curProject===item.name}"
+                                    >
+                                        {{item.name}}
+                                        <small @click="removeProject(item,index)">删</small>
+                                    </li>
+                                    <!--@click="recordProject(item)"-->
                                 </ul>
                             </div>
                         </div>
@@ -94,7 +110,7 @@
 
             <div class="views-task">
                 <div class="task-add">
-                    <div class="add-to-project">所有</div>
+                    <div class="add-to-project">待办</div>
                     <div class="add-new">
                         <input class="add-new-title" type="text" v-model.trim="newTaskTitle" @keypress.enter="addTask" placeholder="+ 新建任务...">
                         <span class="add-new-btn btn" @click="addTask">添加</span>
